@@ -7,10 +7,12 @@ Functions = {}
 Varibles = {}
 Modules = {}
 Data = {}
+Dims = {}
 
 def Run(FileContent, Args):
     InFileSystemCreation = False
-    ConditionState = False
+    HaveToExecute = False
+    InLineComment = False
     InCondition = False
     InTerminal = False
     InFunction = False
@@ -21,10 +23,12 @@ def Run(FileContent, Args):
     InPython = False
     InTests = False
     InPrint = False
+    InError = False
     InFile = False
     Shortcuts = {}
     InLoop = False
     LoopLong = 000
+    InWarn = False
     TempLoop = []
     InLog = False
     LogLine = 1
@@ -59,9 +63,8 @@ def Run(FileContent, Args):
                 elif(Word[0:2] == "/#"):
                     if(Word != "/#"):
                         Line = Line.replace(Word, f"{open(Word[2:]).read()}")
-                elif(Word[0:2] == "/'"):
-                    if(Word != "/'"):
-                        Line.replace(Word , "")
+                elif(Word == "/'"):
+                    Line = Line.replace("/'{}'/".format(Line.split("/'")[1].split("'/")[0]),"")
             if(InComment != False):
                 if(Line.startswith("'''")):
                     InComment = False
@@ -89,8 +92,8 @@ def Run(FileContent, Args):
                     print(Line)
             elif(InCondition == True):
                 if(Line.startswith("End If")):
-                    if(ConditionState == True):
-                        Run(TempCondition)
+                    if(HaveToExecute == True):
+                        Run(TempCondition , [])
                     InCondition = False
                     TempCondition = []
                 else:
@@ -122,6 +125,36 @@ def Run(FileContent, Args):
                         except:
                             open("PYSLOG", "a").write(f"| {Line}" + "\n")
                     LogLine = LogLine + 1
+            elif(InError == True):
+                if(Line.startswith("End Error")):
+                    InError = False
+                else:
+                    if(LogLine == 1):
+                        try:
+                            open(Data["LogFile"], "a").write(f"[Error] {Line}" + "\n")
+                        except:
+                            open("PYSLOG", "a").write(f"[Error] {Line}" + "\n")
+                    else:
+                        try:
+                            open(Data["LogFile"], "a").write(f"| {Line}" + "\n")
+                        except:
+                            open("PYSLOG", "a").write(f"| {Line}" + "\n")
+                    LogLine = LogLine + 1
+            elif(InWarn == True):
+                if(Line.startswith("End Warn")):
+                    InWarn = False
+                else:
+                    if(LogLine == 1):
+                        try:
+                            open(Data["LogFile"], "a").write(f"[Warning] {Line}" + "\n")
+                        except:
+                            open("PYSLOG", "a").write(f"[Warning] {Line}" + "\n")
+                    else:
+                        try:
+                            open(Data["LogFile"], "a").write(f"| {Line}" + "\n")
+                        except:
+                            open("PYSLOG", "a").write(f"| {Line}" + "\n")
+                    LogLine = LogLine + 1
             else:
                 if(InFunction != False):
                     if Line != f"End {InFunction}":
@@ -140,7 +173,7 @@ def Run(FileContent, Args):
                         if(Line.split(" ")[1] == "Import"):
                             Run(open(Line[16:], "r"))
                         if(Line.split(" ")[1] == "Python"):
-                            exec(f"import {Line[16:]}")
+                            exec(f"import {Line.split(' ')[2]}")
                     elif(Line.startswith("Function")):
                         if(Line.split(" ")[1] == "def"):
                             Functions[Line.split(" ")[2]] = []
@@ -157,16 +190,34 @@ def Run(FileContent, Args):
                         Modules[Line.split(" ")[1]] = []
                         InModule = Line.split(" ")[1]
                     elif(Line.startswith("Data")):
-                        Data[Line.split(" : ")[0].replace("@Data ", "")] = Line.split(" : ")[1]
+                        Data[Line.split(" : ")[0].replace("Data ", "")] = Line.split(" : ")[1]
                     elif(Line.startswith("Log")):
                         if(Line.split(" ")[1] != "Group"):
                             try:
-                                open(Data["LogFile"], "a").write(f"[Log] {Line[5:]}" + "\n")
+                                open(Data["LogFile"], "a").write(f"[Log] {Line[4:]}" + "\n")
                             except:
-                                open("PYSLOG", "a").write(f"[Log] {Line[5:]}" + "\n")
+                                open("PYSLOG", "a").write(f"[Log] {Line[4:]}" + "\n")
                         else:
                             LogLine = 1
                             InLog = True
+                    elif(Line.startswith("Warn")):
+                        if(Line.split(" ")[1] != "Group"):
+                            try:
+                                open(Data["LogFile"], "a").write(f"[Warning] {Line[5:]}" + "\n")
+                            except:
+                                open("PYSLOG", "a").write(f"[Warning] {Line[5:]}" + "\n")
+                        else:
+                            LogLine = 1
+                            InWarn = True
+                    elif(Line.startswith("Error")):
+                        if(Line.split(" ")[1] != "Group"):
+                            try:
+                                open(Data["LogFile"], "a").write(f"[Error] {Line[6:]}" + "\n")
+                            except:
+                                open("PYSLOG", "a").write(f"[Error] {Line[6:]}" + "\n")
+                        else:
+                            LogLine = 1
+                            InError = True
                     elif(Line.startswith("PythonFunction")):
                         exec(f"{Line[16:]}()")
                     elif(Line.startswith("%")):
@@ -225,8 +276,16 @@ def Run(FileContent, Args):
                             LoopLong = int(Line.split()[1])
                         InLoop = True
                     elif(Line.startswith("If")):
-                        if(eval(Line.split("=>")[1].replace("@If ", ""))):
-                            Run(Functions[Line.split("=>")[2]])
+                        if(eval(Line.replace("If ", ""))):
+                            ConditionType = Line.replace("If ", "")
+                            InCondition = True
+                            TempCondition = []
+                            HaveToExecute = True
+                        else:
+                            ConditionType = Line.replace("If ", "")
+                            InCondition = True
+                            TempCondition = []
+                            HaveToExecute = False
                     elif(Line.startswith("@")):
                         if(Line[1:] in Modules):
                             Run(Modules[Line[1:]])
