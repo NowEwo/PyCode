@@ -103,10 +103,10 @@ def Run(FileContent, Args):
                     InLoop = False
                     if(LoopLong == "Infinite"):
                         while True:
-                            Run(TempLoop)
+                            Run(TempLoop , ["","",""])
                     else:
                         for Loop in range(LoopLong):
-                            Run(TempLoop)
+                            Run(TempLoop , ["","",""])
                     TempLoop = []
                 else:
                     TempLoop.append(Line)
